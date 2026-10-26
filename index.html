@@ -61,34 +61,11 @@
 </head>
 <body>
   <h1>轉線申請表</h1>
-  <p class="sub">請由會員本人確認後填寫，送出後機器人會請你上傳對話截圖。</p>
+  <p class="sub">請由會員本人確認同意後送出，送出後機器人會請你上傳對話截圖。</p>
 
   <div class="card">
     <div class="row"><label class="name">會員帳號</label><div class="fixed" id="acct">—</div></div>
     <div class="row"><label class="name" id="targetLabel">欲轉入代理帳號</label><div class="fixed" id="target">—</div></div>
-  </div>
-
-  <div class="card">
-    <div class="row">
-      <label class="name" for="phone">會員電話</label>
-      <input type="tel" id="phone" inputmode="numeric" autocomplete="off" placeholder="09xxxxxxxx" maxlength="14">
-      <div class="err" id="phoneErr"></div>
-    </div>
-    <div class="row">
-      <label class="name" for="name">會員姓名</label>
-      <input type="text" id="name" autocomplete="off" placeholder="與會員註冊姓名相同" maxlength="20">
-      <div class="err" id="nameErr"></div>
-    </div>
-    <div class="row">
-      <label class="name" for="idno">會員身分證</label>
-      <input type="text" id="idno" autocomplete="off" autocapitalize="characters" placeholder="A123456789" maxlength="10">
-      <div class="err" id="idnoErr"></div>
-    </div>
-    <div class="row">
-      <label class="name" for="line">會員 LINE ID（沒有可留空）</label>
-      <input type="text" id="line" autocomplete="off" placeholder="選填" maxlength="50">
-      <div class="err" id="lineErr"></div>
-    </div>
   </div>
 
   <div class="card">
@@ -130,26 +107,10 @@
         block("表單連結不完整，請回到 Telegram 重新按「📝 填寫轉線資料」。");
       }
 
-      function value(id) { return document.getElementById(id).value.trim(); }
       function setErr(id, message) { document.getElementById(id + "Err").textContent = message || ""; }
-
-      var idInput = document.getElementById("idno");
-      idInput.addEventListener("input", function () {
-        var pos = idInput.selectionStart;
-        idInput.value = idInput.value.toUpperCase();
-        try { idInput.setSelectionRange(pos, pos); } catch (e) {}
-      });
 
       function collect() {
         var ok = true;
-        var phone = value("phone").replace(/[\s-]/g, "");
-        if (!/^09\d{8}$/.test(phone)) { setErr("phone", "請輸入 09 開頭的 10 碼手機號碼"); ok = false; } else { setErr("phone"); }
-        var name = value("name");
-        if (!name || name.length > 20) { setErr("name", "請輸入會員姓名"); ok = false; } else { setErr("name"); }
-        var idno = value("idno").toUpperCase();
-        if (!/^[A-Z][12]\d{8}$/.test(idno)) { setErr("idno", "格式為 1 個英文字母＋9 碼數字，例如 A123456789"); ok = false; } else { setErr("idno"); }
-        var line = value("line");
-        if (line.length > 50) { setErr("line", "最多 50 字"); ok = false; } else { setErr("line"); }
         var agreeEl = document.querySelector("input[name=agree]:checked");
         if (!agreeEl) { setErr("agree", "請選擇是否同意"); ok = false; }
         else if (agreeEl.value !== "yes") { setErr("agree", "會員不同意就無法轉線"); ok = false; }
@@ -157,8 +118,8 @@
         var ack = document.getElementById("ack").checked;
         if (!ack) { setErr("ack", "請勾選會員確認事項"); ok = false; } else { setErr("ack"); }
         if (!ok) return null;
-        return { v: 1, t: token, acct: acct, target: target, ttype: ttype,
-                 phone: phone, name: name, id_no: idno, line_id: line, agree: true, ack: true };
+        // 2026-10-27 使用者要求拿掉電話／姓名／身分證／LINE，只送同意與確認。
+        return { v: 1, t: token, acct: acct, target: target, ttype: ttype, agree: true, ack: true };
       }
 
       function submit() {
