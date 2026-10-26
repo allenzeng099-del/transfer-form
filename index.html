@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>轉線申請表</title>
+  <!--
+    RS 代理小幫手（@rs888_agent_bot）轉線申請 Mini App。
+    這頁放在 GitHub Pages，只有表單版面，不含任何密碼或資料；填好的內容透過
+    Telegram.WebApp.sendData() 經 Telegram 交回機器人，主機不需要對外開放（2026-10-26）。
+  -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --bg: var(--tg-theme-bg-color, #ffffff);
+      --card: var(--tg-theme-secondary-bg-color, #f2f2f7);
+      --text: var(--tg-theme-text-color, #111111);
+      --hint: var(--tg-theme-hint-color, #8e8e93);
+      --accent: var(--tg-theme-button-color, #2a78d6);
+      --accent-text: var(--tg-theme-button-text-color, #ffffff);
+      --danger: #d03b3b;
+      --line: rgba(127, 127, 127, 0.22);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--text); }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans TC", sans-serif;
+      font-size: 16px; line-height: 1.5; padding: 16px 16px 96px;
+      -webkit-text-size-adjust: 100%;
+    }
+    h1 { font-size: 20px; margin: 4px 0 2px; }
+    .sub { color: var(--hint); font-size: 14px; margin: 0 0 16px; }
+    .card { background: var(--card); border-radius: 14px; padding: 4px 16px; margin-bottom: 14px; }
+    .row { padding: 12px 0; border-bottom: 1px solid var(--line); }
+    .row:last-child { border-bottom: 0; }
+    label.name { display: block; font-size: 13px; color: var(--hint); margin-bottom: 4px; }
+    .fixed { font-weight: 600; word-break: break-all; }
+    input[type=text], input[type=tel] {
+      width: 100%; font-size: 17px; padding: 8px 0; border: 0; outline: 0;
+      background: transparent; color: var(--text);
+    }
+    input::placeholder { color: var(--hint); opacity: .7; }
+    .err { color: var(--danger); font-size: 13px; margin-top: 2px; min-height: 0; }
+    .choice { display: flex; gap: 10px; margin-top: 4px; }
+    .choice label {
+      flex: 1; text-align: center; padding: 10px 0; border-radius: 10px;
+      border: 1px solid var(--line); cursor: pointer; font-weight: 600;
+    }
+    .choice input { display: none; }
+    .choice input:checked + span { color: var(--accent); }
+    .choice label:has(input:checked) { border-color: var(--accent); }
+    .ack { display: flex; gap: 10px; align-items: flex-start; padding: 12px 0; font-size: 14px; }
+    .ack input { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--accent); flex: none; }
+    .note { color: var(--hint); font-size: 13px; margin: 0 4px 14px; }
+    #fallback {
+      display: none; width: 100%; padding: 14px; border: 0; border-radius: 12px;
+      background: var(--accent); color: var(--accent-text); font-size: 17px; font-weight: 600;
+    }
+    #blocked { display: none; color: var(--danger); font-weight: 600; margin: 8px 4px; }
+  </style>
+</head>
+<body>
+  <h1>轉線申請表</h1>
+  <p class="sub">請由會員本人確認後填寫，送出後機器人會請你上傳對話截圖。</p>
+
+  <div class="card">
+    <div class="row"><label class="name">會員帳號</label><div class="fixed" id="acct">—</div></div>
+    <div class="row"><label class="name" id="targetLabel">欲轉入代理帳號</label><div class="fixed" id="target">—</div></div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <label class="name" for="phone">會員電話</label>
+      <input type="tel" id="phone" inputmode="numeric" autocomplete="off" placeholder="09xxxxxxxx" maxlength="14">
+      <div class="err" id="phoneErr"></div>
+    </div>
+    <div class="row">
+      <label class="name" for="name">會員姓名</label>
+      <input type="text" id="name" autocomplete="off" placeholder="與會員註冊姓名相同" maxlength="20">
+      <div class="err" id="nameErr"></div>
+    </div>
+    <div class="row">
+      <label class="name" for="idno">會員身分證</label>
+      <input type="text" id="idno" autocomplete="off" autocapitalize="characters" placeholder="A123456789" maxlength="10">
+      <div class="err" id="idnoErr"></div>
+    </div>
+    <div class="row">
+      <label class="name" for="line">會員 LINE ID（沒有可留空）</label>
+      <input type="text" id="line" autocomplete="off" placeholder="選填" maxlength="50">
+      <div class="err" id="lineErr"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <label class="name">是否同意轉線</label>
+      <div class="choice">
+        <label><input type="radio" name="agree" value="yes"><span>是</span></label>
+        <label><input type="radio" name="agree" value="no"><span>否</span></label>
+      </div>
+      <div class="err" id="agreeErr"></div>
+    </div>
+    <label class="ack">
+      <input type="checkbox" id="ack">
+      <span>本人已知悉並同意，轉線後原線下推薦會員將流失；儲值次數及出款次數紀錄保留，原有投注流水不予保留。</span>
+    </label>
+    <div class="err" id="ackErr" style="padding-bottom:10px"></div>
+  </div>
+
+  <p class="note">資料只會透過 Telegram 傳給機器人，不會存在這個網頁。</p>
+  <p id="blocked"></p>
+  <button id="fallback" type="button">送出轉線資料</button>
+
+  <script>
+    (function () {
+      var tg = window.Telegram && window.Telegram.WebApp;
+      var params = new URLSearchParams(window.location.search);
+      var acct = (params.get("acct") || "").trim();
+      var target = (params.get("target") || "").trim();
+      var ttype = params.get("ttype") || "agent";
+      var token = params.get("t") || "";
+
+      document.getElementById("acct").textContent = acct || "—";
+      document.getElementById("target").textContent = target || "—";
+      document.getElementById("targetLabel").textContent = ttype === "referrer" ? "欲轉入推薦人帳號" : "欲轉入代理帳號";
+
+      var blocked = document.getElementById("blocked");
+      function block(message) { blocked.textContent = message; blocked.style.display = "block"; }
+      if (!acct || !target || !token) {
+        block("表單連結不完整，請回到 Telegram 重新按「📝 填寫轉線資料」。");
+      }
+
+      function value(id) { return document.getElementById(id).value.trim(); }
+      function setErr(id, message) { document.getElementById(id + "Err").textContent = message || ""; }
+
+      var idInput = document.getElementById("idno");
+      idInput.addEventListener("input", function () {
+        var pos = idInput.selectionStart;
+        idInput.value = idInput.value.toUpperCase();
+        try { idInput.setSelectionRange(pos, pos); } catch (e) {}
+      });
+
+      function collect() {
+        var ok = true;
+        var phone = value("phone").replace(/[\s-]/g, "");
+        if (!/^09\d{8}$/.test(phone)) { setErr("phone", "請輸入 09 開頭的 10 碼手機號碼"); ok = false; } else { setErr("phone"); }
+        var name = value("name");
+        if (!name || name.length > 20) { setErr("name", "請輸入會員姓名"); ok = false; } else { setErr("name"); }
+        var idno = value("idno").toUpperCase();
+        if (!/^[A-Z][12]\d{8}$/.test(idno)) { setErr("idno", "格式為 1 個英文字母＋9 碼數字，例如 A123456789"); ok = false; } else { setErr("idno"); }
+        var line = value("line");
+        if (line.length > 50) { setErr("line", "最多 50 字"); ok = false; } else { setErr("line"); }
+        var agreeEl = document.querySelector("input[name=agree]:checked");
+        if (!agreeEl) { setErr("agree", "請選擇是否同意"); ok = false; }
+        else if (agreeEl.value !== "yes") { setErr("agree", "會員不同意就無法轉線"); ok = false; }
+        else { setErr("agree"); }
+        var ack = document.getElementById("ack").checked;
+        if (!ack) { setErr("ack", "請勾選會員確認事項"); ok = false; } else { setErr("ack"); }
+        if (!ok) return null;
+        return { v: 1, t: token, acct: acct, target: target, ttype: ttype,
+                 phone: phone, name: name, id_no: idno, line_id: line, agree: true, ack: true };
+      }
+
+      function submit() {
+        if (blocked.style.display === "block") return;
+        var payload = collect();
+        if (!payload) {
+          if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("error");
+          return;
+        }
+        var data = JSON.stringify(payload);
+        if (!tg || !tg.sendData) { block("請在 Telegram 裡開啟這個表單。"); return; }
+        tg.sendData(data);  // 送出後 Telegram 會自動關閉表單，資料交給機器人
+      }
+
+      if (tg && tg.initData !== undefined) {
+        tg.ready();
+        tg.expand();
+        tg.MainButton.setText("送出轉線資料");
+        tg.MainButton.show();
+        tg.MainButton.onClick(submit);
+      } else {
+        // 不是從 Telegram 開啟（例如直接用瀏覽器）時顯示一般按鈕，但仍無法送出。
+        var fallback = document.getElementById("fallback");
+        fallback.style.display = "block";
+        fallback.addEventListener("click", submit);
+      }
+    })();
+  </script>
+</body>
+</html>
